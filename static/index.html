@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Premier DAM店舗検索</title>
+    <style>
+      body {
+        font-family: "Hiragino Sans", "ヒラギノ角ゴ ProN W3",
+          "Hiragino Kaku Gothic ProN", "Arial", "メイリオ", "Meiryo", sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+        border-bottom: 3px solid #2196f3;
+        padding-bottom: 10px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        background: #2196f3;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+
+      button:hover {
+        background: #1976d2;
+      }
+
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+
+      .progress {
+        margin-bottom: 20px;
+        padding: 10px;
+        background: #f9f9f9;
+        border-radius: 5px;
+        display: none;
+      }
+
+      .progress.show {
+        display: block;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 20px;
+        background: #e0e0e0;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: #4caf50;
+        width: 0%;
+        transition: width 0.3s ease;
+      }
+
+      .results {
+        margin-top: 20px;
+      }
+
+      .prefecture-section {
+        margin-bottom: 30px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+
+      .prefecture-header {
+        background: #f5f5f5;
+        padding: 10px 15px;
+        border-bottom: 1px solid #ddd;
+        font-weight: bold;
+      }
+
+      .city-section {
+        margin: 10px;
+      }
+
+      .city-header {
+        background: #e3f2fd;
+        padding: 8px 12px;
+        border-radius: 3px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .shop-item {
+        background: #fafafa;
+        border: 1px solid #eee;
+        border-radius: 3px;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+
+      .shop-name {
+        font-weight: bold;
+        font-size: 16px;
+        color: #1976d2;
+        margin-bottom: 5px;
+      }
+
+      .shop-address {
+        color: #666;
+        margin-bottom: 3px;
+      }
+
+      .shop-phone {
+        color: #666;
+        margin-bottom: 5px;
+      }
+
+      .shop-machines {
+        font-size: 12px;
+        color: #4caf50;
+      }
+
+      .error {
+        color: #f44336;
+        background: #ffebee;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+      }
+
+      .prefecture-selector {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+      }
+
+      .prefecture-selector h3 {
+        margin: 0 0 10px 0;
+        font-size: 16px;
+      }
+
+      .prefecture-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 8px;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      .prefecture-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 13px;
+      }
+
+      .prefecture-item input[type="checkbox"] {
+        margin: 0;
+        transform: scale(0.9);
+      }
+
+      .selector-controls {
+        margin-top: 10px;
+        display: flex;
+        gap: 10px;
+      }
+
+      .selector-controls button {
+        font-size: 12px;
+        padding: 5px 10px;
+        background: #6c757d;
+      }
+
+      .selector-controls button:hover {
+        background: #5a6268;
+      }
+
+      .status {
+        padding: 5px 10px;
+        border-radius: 3px;
+        font-size: 12px;
+        margin-left: 10px;
+      }
+
+      .status.processing {
+        background: #fff3e0;
+        color: #ef6c00;
+      }
+
+      .status.completed {
+        background: #e8f5e8;
+        color: #2e7d32;
+      }
+
+      .status.error {
+        background: #ffebee;
+        color: #c62828;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎤 Premier DAM店舗検索</h1>
+
+      <div
+        style="
+          background: #e3f2fd;
+          padding: 10px;
+          border-radius: 5px;
+          margin-bottom: 20px;
+          font-size: 14px;
+        "
+      >
+        <strong>📋 検索条件:</strong> Premier DAM (machine=03)
+        を設置している店舗のみを表示します<br />
+        <strong>🌐 Express API:</strong> Node.js +
+        Expressサーバーでプロキシ処理<br />
+        <strong>🔤 文字エンコーディング:</strong> Shift_JIS → UTF-8 自動変換対応
+      </div>
+
+      <div class="controls">
+        <button id="start-all" onclick="startSearch()">検索開始</button>
+        <button id="stop-search" onclick="stopSearch()" disabled>
+          検索停止
+        </button>
+        <button id="clear-results" onclick="clearResults()">結果クリア</button>
+      </div>
+
+      <div class="prefecture-selector">
+        <h3>🗾 検索対象都道府県</h3>
+        <div class="selector-controls">
+          <button onclick="selectAllPrefectures()">全選択</button>
+          <button onclick="deselectAllPrefectures()">全解除</button>
+          <button onclick="selectRegion('kanto')">関東</button>
+          <button onclick="selectRegion('kansai')">関西</button>
+        </div>
+        <div class="prefecture-grid" id="prefecture-grid">
+          <!-- 都道府県チェックボックスはJavaScriptで動的生成 -->
+        </div>
+      </div>
+
+      <div class="progress" id="progress">
+        <div>進捗: <span id="progress-text">0/47都道府県</span></div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="results" id="results"></div>
+    </div>
+
+    <script>
+      // グローバル変数
+      let isSearching = false;
+      let shouldStop = false;
+      let totalShops = 0;
+      let abortController = null; // API リクエストの中断用
+
+      // 地域別都道府県グループ
+      const regions = {
+        kanto: ["08", "09", "10", "11", "12", "13", "14"], // 茨城〜神奈川
+        kansai: ["25", "26", "27", "28", "29", "30"], // 滋賀〜和歌山
+      };
+
+      // 都道府県リスト（1-47）
+      const prefectures = [
+        { code: "01", name: "北海道" },
+        { code: "02", name: "青森県" },
+        { code: "03", name: "岩手県" },
+        { code: "04", name: "宮城県" },
+        { code: "05", name: "秋田県" },
+        { code: "06", name: "山形県" },
+        { code: "07", name: "福島県" },
+        { code: "08", name: "茨城県" },
+        { code: "09", name: "栃木県" },
+        { code: "10", name: "群馬県" },
+        { code: "11", name: "埼玉県" },
+        { code: "12", name: "千葉県" },
+        { code: "13", name: "東京都" },
+        { code: "14", name: "神奈川県" },
+        { code: "15", name: "新潟県" },
+        { code: "16", name: "富山県" },
+        { code: "17", name: "石川県" },
+        { code: "18", name: "福井県" },
+        { code: "19", name: "山梨県" },
+        { code: "20", name: "長野県" },
+        { code: "21", name: "岐阜県" },
+        { code: "22", name: "静岡県" },
+        { code: "23", name: "愛知県" },
+        { code: "24", name: "三重県" },
+        { code: "25", name: "滋賀県" },
+        { code: "26", name: "京都府" },
+        { code: "27", name: "大阪府" },
+        { code: "28", name: "兵庫県" },
+        { code: "29", name: "奈良県" },
+        { code: "30", name: "和歌山県" },
+        { code: "31", name: "鳥取県" },
+        { code: "32", name: "島根県" },
+        { code: "33", name: "岡山県" },
+        { code: "34", name: "広島県" },
+        { code: "35", name: "山口県" },
+        { code: "36", name: "徳島県" },
+        { code: "37", name: "香川県" },
+        { code: "38", name: "愛媛県" },
+        { code: "39", name: "高知県" },
+        { code: "40", name: "福岡県" },
+        { code: "41", name: "佐賀県" },
+        { code: "42", name: "長崎県" },
+        { code: "43", name: "熊本県" },
+        { code: "44", name: "大分県" },
+        { code: "45", name: "宮崎県" },
+        { code: "46", name: "鹿児島県" },
+        { code: "47", name: "沖縄県" },
+      ];
+
+      // 初期化関数
+      function initializePrefectureSelector() {
+        const grid = document.getElementById("prefecture-grid");
+        grid.innerHTML = "";
+
+        prefectures.forEach((pref) => {
+          const item = document.createElement("div");
+          item.className = "prefecture-item";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.id = `pref-${pref.code}`;
+          checkbox.value = pref.code;
+          checkbox.checked = true; // 初期は全選択
+
+          const label = document.createElement("label");
+          label.htmlFor = `pref-${pref.code}`;
+          label.textContent = pref.name;
+
+          item.appendChild(checkbox);
+          item.appendChild(label);
+          grid.appendChild(item);
+        });
+      }
+
+      // 全選択/全解除
+      function selectAllPrefectures() {
+        document
+          .querySelectorAll('#prefecture-grid input[type="checkbox"]')
+          .forEach((cb) => {
+            cb.checked = true;
+          });
+      }
+
+      function deselectAllPrefectures() {
+        document
+          .querySelectorAll('#prefecture-grid input[type="checkbox"]')
+          .forEach((cb) => {
+            cb.checked = false;
+          });
+      }
+
+      // 地域選択
+      function selectRegion(regionName) {
+        deselectAllPrefectures();
+        const regionCodes = regions[regionName] || [];
+        regionCodes.forEach((code) => {
+          const checkbox = document.getElementById(`pref-${code}`);
+          if (checkbox) checkbox.checked = true;
+        });
+      }
+
+      // 選択された都道府県を取得
+      function getSelectedPrefectures() {
+        const selected = [];
+        document
+          .querySelectorAll('#prefecture-grid input[type="checkbox"]:checked')
+          .forEach((cb) => {
+            const pref = prefectures.find((p) => p.code === cb.value);
+            if (pref) selected.push(pref);
+          });
+        return selected;
+      }
+
+      // 検索開始
+      async function startSearch() {
+        if (isSearching) return;
+
+        const selectedPrefectures = getSelectedPrefectures();
+        if (selectedPrefectures.length === 0) {
+          alert("検索対象の都道府県を選択してください");
+          return;
+        }
+
+        isSearching = true;
+        shouldStop = false;
+        totalShops = 0;
+        abortController = new AbortController(); // リクエスト中断用
+
+        document.getElementById("start-all").disabled = true;
+        document.getElementById("stop-search").disabled = false;
+        document.getElementById("progress").classList.add("show");
+
+        console.log(`🚀 検索開始: ${selectedPrefectures.length}都道府県を処理`);
+
+        for (let i = 0; i < selectedPrefectures.length; i++) {
+          if (shouldStop) {
+            console.log("🛑 検索を停止しました");
+            break;
+          }
+
+          const pref = selectedPrefectures[i];
+          await processPrefecture(pref, i + 1, selectedPrefectures.length);
+
+          // 進捗更新
+          updateProgress(i + 1, selectedPrefectures.length);
+
+          // 1.5秒待機（停止チェック付き）
+          if (i < selectedPrefectures.length - 1) {
+            for (let wait = 0; wait < 15; wait++) {
+              if (shouldStop) break;
+              await sleep(100);
+            }
+          }
+        }
+
+        finishSearch();
+      }
+
+      // 都道府県処理
+      async function processPrefecture(pref, index, total) {
+        console.log(`🔍 ${pref.name} (${index}/${total}) 処理開始`);
+
+        // 都道府県セクション作成
+        const prefSection = createPrefectureSection(pref.name, index, total);
+        document.getElementById("results").appendChild(prefSection);
+
+        try {
+          // 市区町村リスト取得
+          const cities = await getCityList(pref.code);
+          console.log(`📍 ${pref.name}: ${cities.length}市区町村を発見`);
+
+          if (cities.length === 0) {
+            addError(prefSection, "市区町村が見つかりませんでした");
+            return;
+          }
+
+          // 各市区町村を処理
+          for (const city of cities) {
+            if (shouldStop) {
+              console.log(`⏹️ 検索停止: ${pref.name} ${city.name}`);
+              break;
+            }
+
+            try {
+              const shops = await processCity(pref.code, city.code, city.name);
+              if (shops.length > 0) {
+                addCitySection(prefSection, city.name, shops);
+                totalShops += shops.length;
+              }
+
+              // 停止チェック付き待機
+              for (let wait = 0; wait < 8; wait++) {
+                if (shouldStop) break;
+                await sleep(100);
+              }
+            } catch (error) {
+              console.error(`❌ ${pref.name} ${city.name} エラー:`, error);
+              addError(prefSection, `${city.name}: ${error.message}`);
+            }
+          }
+
+          updatePrefectureStatus(prefSection, "completed");
+        } catch (error) {
+          console.error(`❌ ${pref.name} エラー:`, error);
+          addError(prefSection, error.message);
+          updatePrefectureStatus(prefSection, "error");
+        }
+      }
+
+      // 市区町村リスト取得（Express API使用、中断対応）
+      async function getCityList(prefCode) {
+        const targetUrl = `https://www.clubdam.com/shopsearch/?todofukenCode=${prefCode}&machine=03`;
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+        console.log(`📡 市区町村リスト取得: ${targetUrl}`);
+
+        const response = await fetch(proxyUrl, {
+          signal: abortController?.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const html = await response.text();
+        console.log(
+          `🔤 文字エンコーディング: 自動変換済み (Shift_JIS -> UTF-8)`
+        );
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+
+        const cities = [];
+        const cityLinks = doc.querySelectorAll('a[href*="?todofukenCode="]');
+
+        cityLinks.forEach((link) => {
+          const href = link.getAttribute("href");
+          const match = href.match(/todofukenCode=(\d+)&cityCode=(\d+)/);
+
+          if (match && match[1] === prefCode && match[2] !== "") {
+            const cityCode = match[2];
+            const cityName = link.textContent.trim();
+
+            if (cityName && !cities.find((c) => c.code === cityCode)) {
+              cities.push({
+                code: cityCode,
+                name: cityName,
+              });
+            }
+          }
+        });
+
+        return cities;
+      }
+
+      // 市区町村の店舗処理（Express API使用、中断対応）
+      async function processCity(prefCode, cityCode, cityName) {
+        const targetUrl = `https://www.clubdam.com/shopsearch/?todofukenCode=${prefCode}&cityCode=${cityCode}&machine=03`;
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+        console.log(`🏪 店舗検索: ${cityName} - ${targetUrl}`);
+
+        const response = await fetch(proxyUrl, {
+          signal: abortController?.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const html = await response.text();
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+
+        const shops = [];
+        const resultItems = doc.querySelectorAll("li.result-item");
+
+        resultItems.forEach((item) => {
+          try {
+            const shop = parseShopItem(item);
+            // Premier DAMを持つ店舗のみを追加
+            if (shop && shop.machines.premier) {
+              shops.push(shop);
+            }
+          } catch (error) {
+            console.error("店舗パースエラー:", error);
+          }
+        });
+
+        console.log(`✅ ${cityName}: ${shops.length}件の店舗を取得`);
+        return shops;
+      }
+
+      // 店舗アイテムのパース
+      function parseShopItem(item) {
+        const nameElement = item.querySelector("span.store-name, a.store-name");
+        const addressElement = item.querySelector("div.store-address > span");
+        const phoneElement = item.querySelector("div.store-tel > a");
+        const mapElement = item.querySelector("div.store-address > a");
+
+        if (!nameElement || !addressElement) {
+          return null;
+        }
+
+        const name = nameElement.textContent.trim();
+        const address = addressElement.textContent.trim();
+        const phone = phoneElement ? phoneElement.textContent.trim() : "";
+
+        // 緯度経度の抽出
+        let latitude = null,
+          longitude = null;
+        if (mapElement) {
+          const href = mapElement.getAttribute("href");
+          const mapMatch = href.match(/q=([0-9.-]+),([0-9.-]+)/);
+          if (mapMatch) {
+            latitude = parseFloat(mapMatch[1]);
+            longitude = parseFloat(mapMatch[2]);
+          }
+        }
+
+        // 機種情報の抽出
+        const machines = {
+          ai: false,
+          studium: false,
+          normal: false,
+          premier: false,
+        };
+
+        const machineImages = item.querySelectorAll("li.machine-item > img");
+        machineImages.forEach((img) => {
+          const alt = img.getAttribute("alt");
+          switch (alt) {
+            case "LIVE DAM Ai":
+              machines.ai = true;
+              break;
+            case "LIVE DAM STADIUM":
+              machines.studium = true;
+              break;
+            case "LIVE DAM":
+              machines.normal = true;
+              break;
+            case "PremierDAM":
+              machines.premier = true;
+              break;
+          }
+        });
+
+        // 機能情報の抽出
+        const features = [];
+        const featureElements = item.querySelectorAll("li.feature-item > span");
+        featureElements.forEach((span) => {
+          const text = span.textContent.trim();
+          if (text) features.push(text);
+        });
+
+        return {
+          name,
+          address,
+          phone,
+          latitude,
+          longitude,
+          machines,
+          features: features.join(", "),
+        };
+      }
+
+      // UI作成・更新関数
+      function createPrefectureSection(prefName, index, total = 47) {
+        const section = document.createElement("div");
+        section.className = "prefecture-section";
+        section.innerHTML = `
+          <div class="prefecture-header">
+            ${prefName} (${index}/${total})
+            <span class="status processing">処理中...</span>
+          </div>
+        `;
+        return section;
+      }
+
+      function addCitySection(prefSection, cityName, shops) {
+        const citySection = document.createElement("div");
+        citySection.className = "city-section";
+
+        const cityHeader = document.createElement("div");
+        cityHeader.className = "city-header";
+        cityHeader.textContent = `${cityName} (${shops.length}件)`;
+        citySection.appendChild(cityHeader);
+
+        shops.forEach((shop) => {
+          const shopItem = document.createElement("div");
+          shopItem.className = "shop-item";
+
+          // Premier DAMのみ表示（他の機種も持っている場合も含む）
+          const machineTypes = ["Premier DAM"];
+          if (shop.machines.ai) machineTypes.push("LIVE DAM Ai");
+          if (shop.machines.studium) machineTypes.push("STADIUM");
+          if (shop.machines.normal) machineTypes.push("LIVE DAM");
+
+          shopItem.innerHTML = `
+            <div class="shop-name">${escapeHtml(shop.name)}</div>
+            <div class="shop-address">📍 ${escapeHtml(shop.address)}</div>
+            ${
+              shop.phone
+                ? `<div class="shop-phone">📞 ${escapeHtml(shop.phone)}</div>`
+                : ""
+            }
+            <div class="shop-machines">🎤 ${machineTypes.join(", ")}</div>
+            ${
+              shop.features
+                ? `<div class="shop-machines">✨ ${escapeHtml(
+                    shop.features
+                  )}</div>`
+                : ""
+            }
+          `;
+
+          citySection.appendChild(shopItem);
+        });
+
+        prefSection.appendChild(citySection);
+      }
+
+      function addError(prefSection, message) {
+        const error = document.createElement("div");
+        error.className = "error";
+        error.textContent = message;
+        prefSection.appendChild(error);
+      }
+
+      function updatePrefectureStatus(prefSection, status) {
+        const statusElement = prefSection.querySelector(".status");
+        statusElement.className = `status ${status}`;
+
+        if (status === "completed") {
+          statusElement.textContent = "完了";
+        } else if (status === "error") {
+          statusElement.textContent = "エラー";
+        }
+      }
+
+      function updateProgress(current, total) {
+        const progressText = document.getElementById("progress-text");
+        const progressFill = document.getElementById("progress-fill");
+
+        progressText.textContent = `${current}/${total}都道府県 (総店舗数: ${totalShops}件)`;
+        progressFill.style.width = `${(current / total) * 100}%`;
+      }
+
+      // ユーティリティ関数
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
+      function stopSearch() {
+        console.log("🛑 検索停止要求");
+        shouldStop = true;
+
+        // 進行中のAPIリクエストを即座に中断
+        if (abortController) {
+          abortController.abort();
+          console.log("⚡ APIリクエストを中断しました");
+        }
+
+        finishSearch();
+      }
+
+      function finishSearch() {
+        isSearching = false;
+        shouldStop = false;
+
+        document.getElementById("start-all").disabled = false;
+        document.getElementById("stop-search").disabled = true;
+
+        console.log(`🎉 検索完了: 総店舗数 ${totalShops}件`);
+      }
+
+      function clearResults() {
+        document.getElementById("results").innerHTML = "";
+        document.getElementById("progress").classList.remove("show");
+        totalShops = 0;
+      }
+
+      // ページ読み込み完了時
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log(`🌐 Premier DAM店舗検索 読み込み完了`);
+        console.log("✅ Premier DAM (machine=03) のみを検索・表示");
+        console.log("🔤 文字エンコーディング: Shift_JIS -> UTF-8 自動変換");
+        console.log("🚀 Express + Node.js ベースのWebアプリケーション");
+
+        // 都道府県チェックボックスを初期化
+        initializePrefectureSelector();
+      });
+    </script>
+  </body>
+</html>
