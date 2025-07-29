@@ -350,6 +350,59 @@
         { code: "47", name: "沖縄県" },
       ];
 
+      // 店舗修正データ（JSONから読み込み）
+      let shopCorrections = {};
+
+      // JSONファイルから店舗修正データを読み込み
+      async function loadShopCorrections() {
+        try {
+          const response = await fetch("./shop_corrections.json");
+          const jsonData = await response.json();
+
+          shopCorrections = {};
+
+          // JSONデータを処理
+          jsonData.forEach((item) => {
+            const shopName = item.name;
+            shopCorrections[shopName] = {
+              address: item.address,
+              phone: item.phone || "",
+              warning: item.warning,
+              removePremier: item.removePremier,
+            };
+          });
+
+          console.log(
+            "📋 店舗修正データを読み込みました:",
+            Object.keys(shopCorrections).length + "件"
+          );
+        } catch (error) {
+          console.error("❌ 店舗修正データの読み込みに失敗:", error);
+          // フォールバック: 空のデータ
+          shopCorrections = {};
+        }
+      }
+
+      // 店舗情報修正関数
+      function correctShopInfo(shop) {
+        const correction = shopCorrections[shop.name];
+        if (correction) {
+          // 住所が一致する場合のみ修正を適用
+          if (
+            shop.address.includes(correction.address) ||
+            correction.address.includes(shop.address.replace(/\s/g, ""))
+          ) {
+            // Premier DAMフラグを削除
+            if (correction.removePremier) {
+              shop.machines.premier = false;
+            }
+            // 警告メッセージを追加
+            shop.warning = correction.warning;
+          }
+        }
+        return shop;
+      }
+
       // 初期化関数
       function initializePrefectureSelector() {
         const grid = document.getElementById("prefecture-grid");
@@ -423,6 +476,10 @@
           alert("検索対象の都道府県を選択してください");
           return;
         }
+
+        // CSV店舗修正データを読み込み
+        console.log("📋 店舗修正データを読み込み中...");
+        await loadShopCorrections();
 
         isSearching = true;
         shouldStop = false;
@@ -580,9 +637,17 @@
         resultItems.forEach((item) => {
           try {
             const shop = parseShopItem(item);
-            // Premier DAMを持つ店舗のみを追加
-            if (shop && shop.machines.premier) {
-              shops.push(shop);
+            if (shop) {
+              // 店舗情報の修正処理
+              const correctedShop = correctShopInfo(shop);
+
+              // Premier DAMを持つ店舗、または警告対象店舗を追加
+              if (
+                correctedShop &&
+                (correctedShop.machines.premier || correctedShop.warning)
+              ) {
+                shops.push(correctedShop);
+              }
             }
           } catch (error) {
             console.error("店舗パースエラー:", error);
@@ -692,8 +757,9 @@
           const shopItem = document.createElement("div");
           shopItem.className = "shop-item";
 
-          // Premier DAMのみ表示（他の機種も持っている場合も含む）
-          const machineTypes = ["Premier DAM"];
+          // Premier DAMのみ表示（修正対象店舗は除外）
+          const machineTypes = [];
+          if (shop.machines.premier) machineTypes.push("Premier DAM");
           if (shop.machines.ai) machineTypes.push("LIVE DAM Ai");
           if (shop.machines.studium) machineTypes.push("STADIUM");
           if (shop.machines.normal) machineTypes.push("LIVE DAM");
@@ -706,11 +772,24 @@
                 ? `<div class="shop-phone">📞 ${escapeHtml(shop.phone)}</div>`
                 : ""
             }
-            <div class="shop-machines">🎤 ${machineTypes.join(", ")}</div>
+            ${
+              machineTypes.length > 0
+                ? `<div class="shop-machines">🎤 ${machineTypes.join(
+                    ", "
+                  )}</div>`
+                : ""
+            }
             ${
               shop.features
                 ? `<div class="shop-machines">✨ ${escapeHtml(
                     shop.features
+                  )}</div>`
+                : ""
+            }
+            ${
+              shop.warning
+                ? `<div class="error" style="margin-top: 8px; font-size: 12px; padding: 5px;">⚠️ ${escapeHtml(
+                    shop.warning
                   )}</div>`
                 : ""
             }
